@@ -209,6 +209,10 @@ Details, all in `results/summary.md` and the JSONL timelines:
   was sent, including audio or text generated just before it that arrived
   late.
 
+## Figure
+
+`results/figures/stop-timeline-A1-C1.png` shows run 1 of scenario A (default) and run 1 of scenario C (BLOCKING) on one time axis. Regenerate it with `uv run --with matplotlib python make_figure.py`.
+
 ## Files
 
 - `stop_test.py`: the harness (argparse CLI, async, one session per run).
