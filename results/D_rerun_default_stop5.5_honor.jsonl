@@ -1,0 +1,99 @@
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T08:36:58", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 5.5, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 348, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 349, "event": "user_text_sent", "label": "book_request", "method": "realtime", "text": "Book me the 3pm slot tomorrow, please."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 448, "event": "session_resumption_update"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 847, "event": "tool_call_received", "call_id": "call_353636", "name": "book_slot", "args": {"slot": "tomorrow 3pm"}, "first": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 848, "event": "service_job_started", "job_id": "job-1", "call_id": "call_353636", "slot": "tomorrow 3pm", "latency_s": 4.0}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 848, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 848, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 848, "event": "usage_metadata", "total_token_count": 703, "prompt_token_count": 688, "response_token_count": 15}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 4850, "event": "service_committed", "job_id": "job-1", "call_id": "call_353636", "slot": "tomorrow 3pm", "committed_at": 4850, "call_was_cancelled_by_server": false}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 4857, "event": "tool_response_sent", "call_id": "call_353636", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 5785, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 5785, "event": "model_transcript", "text": "I am booking the "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6017, "event": "model_transcript", "text": "3pm slot for you"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6240, "event": "model_transcript", "text": " tomorrow."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6349, "event": "user_text_sent", "label": "stop", "method": "realtime", "text": "Actually, stop. Don't book it."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6350, "event": "stop_sent", "since_tool_call_ms": 5502}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6363, "event": "audio_segment", "closed_by": "interrupted", "first_ms": 5785, "last_ms": 6308, "chunks": 7, "bytes": 121920}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6364, "event": "interrupted"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6393, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6393, "event": "usage_metadata", "total_token_count": 809, "prompt_token_count": 741, "response_token_count": 68}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6964, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 6964, "event": "model_transcript", "text": "I'm sorry, but the "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 7306, "event": "model_transcript", "text": "booking for tomorrow"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 7502, "event": "model_transcript", "text": " at 3pm was already"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 7793, "event": "model_transcript", "text": " made."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 7916, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 6964, "last_ms": 7887, "chunks": 12, "bytes": 189602}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 7917, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 10986, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 10986, "event": "usage_metadata", "total_token_count": 897, "prompt_token_count": 793, "response_token_count": 104}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 11012, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": 11024, "event": "session_closed"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 1, "t_ms": -1, "event": "run_end", "summary": {"run": 1, "behavior": "unset", "stop_after_s": 5.5, "latency_s": 4.0, "tool_call_at_ms": 847, "stop_sent_at_ms": 6349, "interrupted_seen": "6364 (+15 vs stop)", "cancellation_seen": "no", "service_committed": "4850", "model_after_stop": "I'm sorry, but the booking for tomorrow at 3pm was already made.", "send_method": "realtime", "errors": "-", "tool_response_sent_ms": "4857", "n_tool_calls": 1, "model_before_stop": "I am booking the 3pm slot for you tomorrow.", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 19}}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T08:37:11", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 5.5, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 222, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 223, "event": "user_text_sent", "label": "book_request", "method": "realtime", "text": "Book me the 3pm slot tomorrow, please."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 357, "event": "session_resumption_update"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 757, "event": "tool_call_received", "call_id": "call_671945", "name": "book_slot", "args": {"slot": "tomorrow 3pm"}, "first": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 757, "event": "service_job_started", "job_id": "job-1", "call_id": "call_671945", "slot": "tomorrow 3pm", "latency_s": 4.0}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 758, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 758, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 758, "event": "usage_metadata", "total_token_count": 703, "prompt_token_count": 688, "response_token_count": 15}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 4759, "event": "service_committed", "job_id": "job-1", "call_id": "call_671945", "slot": "tomorrow 3pm", "committed_at": 4759, "call_was_cancelled_by_server": false}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 4760, "event": "tool_response_sent", "call_id": "call_671945", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 5367, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 5367, "event": "model_transcript", "text": "I am booking your slot "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 5702, "event": "model_transcript", "text": "for tomorrow at 3"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 5947, "event": "model_transcript", "text": " PM."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6134, "event": "model_transcript", "text": "ক্ষণের"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6135, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 5367, "last_ms": 6110, "chunks": 10, "bytes": 141602}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6135, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6259, "event": "user_text_sent", "label": "stop", "method": "realtime", "text": "Actually, stop. Don't book it."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6259, "event": "stop_sent", "since_tool_call_ms": 5502}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6274, "event": "interrupted"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6276, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6277, "event": "usage_metadata", "total_token_count": 820, "prompt_token_count": 741, "response_token_count": 79}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6764, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6764, "event": "model_transcript", "text": "The booking was already "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 6999, "event": "model_transcript", "text": "made for tomorrow"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 7247, "event": "model_transcript", "text": " at 3pm."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 7492, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 6764, "last_ms": 7466, "chunks": 12, "bytes": 140162}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 7492, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 9731, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 9731, "event": "usage_metadata", "total_token_count": 901, "prompt_token_count": 822, "response_token_count": 79}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 9767, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": 9778, "event": "session_closed"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 2, "t_ms": -1, "event": "run_end", "summary": {"run": 2, "behavior": "unset", "stop_after_s": 5.5, "latency_s": 4.0, "tool_call_at_ms": 757, "stop_sent_at_ms": 6259, "interrupted_seen": "6274 (+15 vs stop)", "cancellation_seen": "no", "service_committed": "4759", "model_after_stop": "The booking was already made for tomorrow at 3pm.", "send_method": "realtime", "errors": "-", "tool_response_sent_ms": "4760", "n_tool_calls": 1, "model_before_stop": "I am booking your slot for tomorrow at 3 PM.ক্ষণের", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 22}}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T08:37:22", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 5.5, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 209, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 210, "event": "user_text_sent", "label": "book_request", "method": "realtime", "text": "Book me the 3pm slot tomorrow, please."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 330, "event": "session_resumption_update"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 726, "event": "tool_call_received", "call_id": "call_461245", "name": "book_slot", "args": {"slot": "tomorrow at 3pm"}, "first": true}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 726, "event": "service_job_started", "job_id": "job-1", "call_id": "call_461245", "slot": "tomorrow at 3pm", "latency_s": 4.0}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 726, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 727, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 727, "event": "usage_metadata", "total_token_count": 704, "prompt_token_count": 688, "response_token_count": 16}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 4728, "event": "service_committed", "job_id": "job-1", "call_id": "call_461245", "slot": "tomorrow at 3pm", "committed_at": 4728, "call_was_cancelled_by_server": false}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 4729, "event": "tool_response_sent", "call_id": "call_461245", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow at 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 5289, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 5289, "event": "model_transcript", "text": "I'm booking the 3pm "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 5549, "event": "model_transcript", "text": "slot for you tomorrow."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 5890, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 5289, "last_ms": 5863, "chunks": 11, "bytes": 124802}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 5890, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6228, "event": "user_text_sent", "label": "stop", "method": "realtime", "text": "Actually, stop. Don't book it."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6228, "event": "stop_sent", "since_tool_call_ms": 5502}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6244, "event": "interrupted"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6246, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6246, "event": "usage_metadata", "total_token_count": 812, "prompt_token_count": 743, "response_token_count": 69}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6964, "event": "audio_start"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 6964, "event": "model_transcript", "text": "The booking for tomorrow "}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 7268, "event": "model_transcript", "text": "at 3pm has already"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 7432, "event": "model_transcript", "text": " been confirmed."}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 7784, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 6964, "last_ms": 7758, "chunks": 10, "bytes": 174720}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 7784, "event": "generation_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 10621, "event": "turn_complete"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 10621, "event": "usage_metadata", "total_token_count": 943, "prompt_token_count": 847, "response_token_count": 96}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 10667, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": 10680, "event": "session_closed"}
+{"scenario": "D_rerun_default_stop5.5_honor", "run": 3, "t_ms": -1, "event": "run_end", "summary": {"run": 3, "behavior": "unset", "stop_after_s": 5.5, "latency_s": 4.0, "tool_call_at_ms": 726, "stop_sent_at_ms": 6228, "interrupted_seen": "6244 (+16 vs stop)", "cancellation_seen": "no", "service_committed": "4728", "model_after_stop": "The booking for tomorrow at 3pm has already been confirmed.", "send_method": "realtime", "errors": "-", "tool_response_sent_ms": "4729", "n_tool_calls": 1, "model_before_stop": "I'm booking the 3pm slot for you tomorrow.", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 21}}

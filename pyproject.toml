@@ -1,0 +1,13 @@
+[project]
+name = "live-stop-test"
+version = "0.1.0"
+description = "Measure what happens to an in-flight tool call on the Gemini Live API when the user says 'stop'."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "google-genai",
+    "python-dotenv",
+]
+
+[tool.uv]
+package = false
