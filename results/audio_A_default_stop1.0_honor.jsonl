@@ -1,0 +1,113 @@
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T09:47:58", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 1.0, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto", "input": "audio", "clips_s": {"book": 2.686, "stop": 2.226}, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 292, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 294, "event": "user_audio_start", "label": "book_request", "audio_s": 2.686, "chunks": 27, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 403, "event": "session_resumption_update"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 486, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "0.160s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 486, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "0.160s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 2895, "event": "user_audio_end", "label": "book_request", "since_start_ms": 2601}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4121, "event": "input_transcript", "text": "Book me the 3:00 p.m. slot tomorrow, please."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4121, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "3.800s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4121, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "3.800s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4122, "event": "tool_call_received", "call_id": "call_360228", "name": "book_slot", "args": {"slot": "tomorrow 3pm"}, "first": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4122, "event": "service_job_started", "job_id": "job-1", "call_id": "call_360228", "slot": "tomorrow 3pm", "latency_s": 4.0}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4122, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4122, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 4122, "event": "usage_metadata", "total_token_count": 783, "prompt_token_count": 768, "response_token_count": 15}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 5123, "event": "user_audio_start", "label": "stop", "audio_s": 2.226, "chunks": 23, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 5123, "event": "stop_sent", "since_tool_call_ms": 1001}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 5273, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "5.040s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 5273, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "5.040s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 7325, "event": "user_audio_end", "label": "stop", "since_start_ms": 2202}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 8124, "event": "service_committed", "job_id": "job-1", "call_id": "call_360228", "slot": "tomorrow 3pm", "committed_at": 8124, "call_was_cancelled_by_server": false}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 8127, "event": "tool_response_sent", "call_id": "call_360228", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 8603, "event": "input_transcript", "text": "Actually, stop. Don't book it."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 8604, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "8.360s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 8604, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "8.360s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 9222, "event": "audio_start"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 9222, "event": "model_transcript", "text": "I'm sorry, but the "}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 9418, "event": "model_transcript", "text": "3:00 PM slot"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 9743, "event": "model_transcript", "text": " for tomorrow was already"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 9920, "event": "model_transcript", "text": " booked. Please"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 10168, "event": "model_transcript", "text": " let me know if you would like me to"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 10420, "event": "model_transcript", "text": " cancel it."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 10646, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 9222, "last_ms": 10621, "chunks": 20, "bytes": 298080}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 10647, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 15433, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 15433, "event": "usage_metadata", "total_token_count": 1095, "prompt_token_count": 934, "response_token_count": 161}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 15477, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": 15486, "event": "session_closed"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 1, "t_ms": -1, "event": "run_end", "summary": {"run": 1, "input": "audio", "behavior": "unset", "stop_after_s": 1.0, "latency_s": 4.0, "tool_call_at_ms": 4122, "stop_sent_at_ms": 5123, "stop_audio_end_ms": 7325, "interrupted_seen": "no", "cancellation_seen": "no", "service_committed": "8124", "model_after_stop": "I'm sorry, but the 3:00 PM slot for tomorrow was already booked. Please let me know if you would like me to cancel it.", "send_method": "realtime_audio", "errors": "-", "tool_response_sent_ms": "8127", "n_tool_calls": 1, "model_before_stop": "", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 20, "user_audio": [{"label": "book_request", "start_ms": 294, "end_ms": 2895}, {"label": "stop", "start_ms": 5123, "end_ms": 7325}], "mic_chunks": {"speech": 50, "silence": 104}, "vad_events": [{"at_ms": 486, "type": "ACTIVITY_START", "audio_offset": "0.160s", "vs_stop_ms": -4637}, {"at_ms": 4121, "type": "ACTIVITY_END", "audio_offset": "3.800s", "vs_stop_ms": -1002}, {"at_ms": 5273, "type": "ACTIVITY_START", "audio_offset": "5.040s", "vs_stop_ms": 150}, {"at_ms": 8604, "type": "ACTIVITY_END", "audio_offset": "8.360s", "vs_stop_ms": 3481}], "input_transcript": "Book me the 3:00 p.m. slot tomorrow, please. / Actually, stop. Don't book it.", "model_during_stop_clip": "", "model_after_stop_audio_end": "I'm sorry, but the 3:00 PM slot for tomorrow was already booked. Please let me know if you would like me to cancel it."}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T09:48:15", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 1.0, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto", "input": "audio", "clips_s": {"book": 2.686, "stop": 2.226}, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 234, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 236, "event": "user_audio_start", "label": "book_request", "audio_s": 2.686, "chunks": 27, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 350, "event": "session_resumption_update"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 432, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "0.160s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 433, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "0.160s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 2838, "event": "user_audio_end", "label": "book_request", "since_start_ms": 2602}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4066, "event": "input_transcript", "text": "Book me the 3:00 p.m. slot tomorrow, please."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4066, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "3.800s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4067, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "3.800s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4067, "event": "tool_call_received", "call_id": "call_584031", "name": "book_slot", "args": {"slot": "tomorrow 3pm"}, "first": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4067, "event": "service_job_started", "job_id": "job-1", "call_id": "call_584031", "slot": "tomorrow 3pm", "latency_s": 4.0}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4067, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4068, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 4068, "event": "usage_metadata", "total_token_count": 783, "prompt_token_count": 768, "response_token_count": 15}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 5070, "event": "user_audio_start", "label": "stop", "audio_s": 2.226, "chunks": 23, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 5070, "event": "stop_sent", "since_tool_call_ms": 1003}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 5223, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "5.040s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 5224, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "5.040s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 7273, "event": "user_audio_end", "label": "stop", "since_start_ms": 2203}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 8069, "event": "service_committed", "job_id": "job-1", "call_id": "call_584031", "slot": "tomorrow 3pm", "committed_at": 8069, "call_was_cancelled_by_server": false}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 8069, "event": "tool_response_sent", "call_id": "call_584031", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 8541, "event": "input_transcript", "text": "Actually, stop. Don't book it."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 8542, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "8.360s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 8542, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "8.360s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 9199, "event": "audio_start"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 9199, "event": "model_transcript", "text": "I'm sorry, but the "}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 9463, "event": "model_transcript", "text": "3 p.m. slot"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 9722, "event": "model_transcript", "text": " for tomorrow has already"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 9912, "event": "model_transcript", "text": " been booked."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 10102, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 9199, "last_ms": 10073, "chunks": 14, "bytes": 193920}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 10102, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 13239, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 13239, "event": "usage_metadata", "total_token_count": 1035, "prompt_token_count": 934, "response_token_count": 101}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 13251, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": 13263, "event": "session_closed"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 2, "t_ms": -1, "event": "run_end", "summary": {"run": 2, "input": "audio", "behavior": "unset", "stop_after_s": 1.0, "latency_s": 4.0, "tool_call_at_ms": 4067, "stop_sent_at_ms": 5070, "stop_audio_end_ms": 7273, "interrupted_seen": "no", "cancellation_seen": "no", "service_committed": "8069", "model_after_stop": "I'm sorry, but the 3 p.m. slot for tomorrow has already been booked.", "send_method": "realtime_audio", "errors": "-", "tool_response_sent_ms": "8069", "n_tool_calls": 1, "model_before_stop": "", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 14, "user_audio": [{"label": "book_request", "start_ms": 236, "end_ms": 2838}, {"label": "stop", "start_ms": 5070, "end_ms": 7273}], "mic_chunks": {"speech": 50, "silence": 82}, "vad_events": [{"at_ms": 433, "type": "ACTIVITY_START", "audio_offset": "0.160s", "vs_stop_ms": -4637}, {"at_ms": 4067, "type": "ACTIVITY_END", "audio_offset": "3.800s", "vs_stop_ms": -1003}, {"at_ms": 5224, "type": "ACTIVITY_START", "audio_offset": "5.040s", "vs_stop_ms": 154}, {"at_ms": 8542, "type": "ACTIVITY_END", "audio_offset": "8.360s", "vs_stop_ms": 3472}], "input_transcript": "Book me the 3:00 p.m. slot tomorrow, please. / Actually, stop. Don't book it.", "model_during_stop_clip": "", "model_after_stop_audio_end": "I'm sorry, but the 3 p.m. slot for tomorrow has already been booked."}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 0, "event": "run_start", "wall": "2026-09-29T09:48:30", "model": "gemini-3.8-live", "sdk": "2.25.0", "behavior": "unset", "stop_after_s": 1.0, "stop_after_request_s": null, "min_post_stop_s": 0.0, "latency_s": 4.0, "honor_cancel": true, "scheduling": "none", "scheduling_in": "both", "respond": "immediate", "modality": "AUDIO", "send_method_arg": "auto", "input": "audio", "clips_s": {"book": 2.686, "stop": 2.226}, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 224, "event": "setup_complete", "sdk_saw_setup_complete": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 225, "event": "user_audio_start", "label": "book_request", "audio_s": 2.686, "chunks": 27, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 352, "event": "session_resumption_update"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 422, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "0.160s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 423, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "0.160s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 2827, "event": "user_audio_end", "label": "book_request", "since_start_ms": 2602}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4059, "event": "input_transcript", "text": "Book me the 3:00 p.m. slot tomorrow, please."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4059, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "3.800s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4060, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "3.800s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4067, "event": "tool_call_received", "call_id": "call_496329", "name": "book_slot", "args": {"slot": "tomorrow 3pm"}, "first": true}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4067, "event": "service_job_started", "job_id": "job-1", "call_id": "call_496329", "slot": "tomorrow 3pm", "latency_s": 4.0}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4067, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4088, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 4088, "event": "usage_metadata", "total_token_count": 783, "prompt_token_count": 768, "response_token_count": 15}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 5070, "event": "user_audio_start", "label": "stop", "audio_s": 2.226, "chunks": 23, "chunk_ms": 100, "mime_type": "audio/pcm;rate=16000"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 5070, "event": "stop_sent", "since_tool_call_ms": 1003}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 5219, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_START", "audioOffset": "5.040s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 5220, "event": "voice_activity", "voice_activity_type": "ACTIVITY_START", "audio_offset": "5.040s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 7272, "event": "user_audio_end", "label": "stop", "since_start_ms": 2202}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 8069, "event": "service_committed", "job_id": "job-1", "call_id": "call_496329", "slot": "tomorrow 3pm", "committed_at": 8068, "call_was_cancelled_by_server": false}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 8074, "event": "tool_response_sent", "call_id": "call_496329", "call_was_cancelled_by_server": false, "scheduling": "none", "scheduling_in": "both", "response": {"status": "booked", "slot": "tomorrow 3pm", "confirmation_id": "BK-1001"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 8550, "event": "input_transcript", "text": "Actually, stop. Don't book it."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 8550, "event": "raw_vad", "key": "voiceActivity", "payload": {"type": "ACTIVITY_END", "audioOffset": "8.360s"}}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 8550, "event": "voice_activity", "voice_activity_type": "ACTIVITY_END", "audio_offset": "8.360s"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 9124, "event": "audio_start"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 9124, "event": "model_transcript", "text": "I'm sorry, the "}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 9426, "event": "model_transcript", "text": "booking was already"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 9726, "event": "model_transcript", "text": " made for tomorrow"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 9844, "event": "model_transcript", "text": " at 3 PM."}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 10088, "event": "audio_segment", "closed_by": "generation_complete", "first_ms": 9124, "last_ms": 10060, "chunks": 14, "bytes": 195360}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 10088, "event": "generation_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 13200, "event": "turn_complete"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 13201, "event": "usage_metadata", "total_token_count": 1040, "prompt_token_count": 934, "response_token_count": 106}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 13201, "event": "run_stop_condition", "reason": "settled"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": 13214, "event": "session_closed"}
+{"scenario": "audio_A_default_stop1.0_honor", "run": 3, "t_ms": -1, "event": "run_end", "summary": {"run": 3, "input": "audio", "behavior": "unset", "stop_after_s": 1.0, "latency_s": 4.0, "tool_call_at_ms": 4067, "stop_sent_at_ms": 5070, "stop_audio_end_ms": 7272, "interrupted_seen": "no", "cancellation_seen": "no", "service_committed": "8068", "model_after_stop": "I'm sorry, the booking was already made for tomorrow at 3 PM.", "send_method": "realtime_audio", "errors": "-", "tool_response_sent_ms": "8074", "n_tool_calls": 1, "model_before_stop": "", "done_reason": "settled", "modality": "AUDIO", "audio_chunks": 14, "user_audio": [{"label": "book_request", "start_ms": 225, "end_ms": 2827}, {"label": "stop", "start_ms": 5070, "end_ms": 7272}], "mic_chunks": {"speech": 50, "silence": 82}, "vad_events": [{"at_ms": 423, "type": "ACTIVITY_START", "audio_offset": "0.160s", "vs_stop_ms": -4647}, {"at_ms": 4060, "type": "ACTIVITY_END", "audio_offset": "3.800s", "vs_stop_ms": -1010}, {"at_ms": 5220, "type": "ACTIVITY_START", "audio_offset": "5.040s", "vs_stop_ms": 150}, {"at_ms": 8550, "type": "ACTIVITY_END", "audio_offset": "8.360s", "vs_stop_ms": 3480}], "input_transcript": "Book me the 3:00 p.m. slot tomorrow, please. / Actually, stop. Don't book it.", "model_during_stop_clip": "", "model_after_stop_audio_end": "I'm sorry, the booking was already made for tomorrow at 3 PM."}}

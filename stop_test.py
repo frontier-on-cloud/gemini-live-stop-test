@@ -8,6 +8,12 @@ One run = one Live session:
      tool_call_cancellation, model text/transcript, audio chunks) with a timestamp
      in ms relative to session start (time.monotonic()).
 
+--input text (default) sends the two utterances with send_realtime_input(text=...).
+--input audio streams assets/audio/{book,stop}.wav instead: 16 kHz 16-bit mono PCM,
+100 ms per send_realtime_input(audio=...) call, paced in real time, with silence
+between utterances like an open microphone. Automatic activity detection (VAD) is
+left at the server default.
+
 Writes results/<name>.jsonl (one JSON object per event) and appends a Markdown
 table to results/summary.md after the N runs. The API key is read only from
 GEMINI_API_KEY (.env in this folder or the environment) and is never printed.
@@ -22,6 +28,8 @@ import os
 import re
 import sys
 import time
+import wave
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from importlib.metadata import version as pkg_version
@@ -50,6 +58,11 @@ SYSTEM_INSTRUCTION = (
 BOOK_TEXT = "Book me the 3pm slot tomorrow, please."
 STOP_TEXT = "Actually, stop. Don't book it."
 
+AUDIO_DIR = HERE / "assets" / "audio"
+AUDIO_RATE = 16000  # Hz; clips are 16-bit little-endian mono PCM
+AUDIO_MIME = f"audio/pcm;rate={AUDIO_RATE}"
+CHUNK_S = 0.1  # seconds of audio per send_realtime_input(audio=...) call
+
 # Raw (camelCase) keys this script knows about. Anything else is logged by name.
 KNOWN_RAW_TOP = {
     "setupComplete", "serverContent", "toolCall", "toolCallCancellation",
@@ -59,7 +72,7 @@ KNOWN_RAW_TOP = {
 KNOWN_RAW_SERVER_CONTENT = {
     "modelTurn", "turnComplete", "generationComplete", "interrupted",
     "outputTranscription", "inputTranscription", "turnCompleteReason",
-    "waitingForInput", "interactionStatus",
+    "waitingForInput", "interactionStatus", "interimInputTranscription",
 }
 
 # ---------------------------------------------------------------- redaction --
@@ -165,6 +178,125 @@ class WsTap:
         return raw
 
 
+# -------------------------------------------------------------------- audio --
+
+
+def load_pcm(path: Path) -> bytes:
+    """Raw PCM frames of a 16 kHz, 16-bit, mono, uncompressed WAV file."""
+    with wave.open(str(path), "rb") as w:
+        fmt = (w.getframerate(), w.getsampwidth() * 8, w.getnchannels(), w.getcomptype())
+        if fmt != (AUDIO_RATE, 16, 1, "NONE"):
+            raise ValueError(f"{path.name}: expected (16000 Hz, 16 bit, 1 ch, NONE), got {fmt}")
+        return w.readframes(w.getnframes())
+
+
+def pcm_seconds(pcm: bytes) -> float:
+    return len(pcm) / (AUDIO_RATE * 2)
+
+
+@dataclass
+class Utterance:
+    label: str
+    chunks: list[bytes]
+    started: asyncio.Future  # ms of the first chunk sent, or None if sending failed
+    ended: asyncio.Future    # ms of the last chunk sent, or None if sending failed
+
+
+class Mic:
+    """Simulated open microphone for --input audio.
+
+    Every send is one send_realtime_input(audio=Blob(pcm, "audio/pcm;rate=16000"))
+    call carrying CHUNK_S of audio, paced in real time against an absolute
+    schedule (each send waits for the duration of the previous chunk). While no
+    utterance is queued it sends silence, so the server's automatic VAD can
+    detect the end of speech. An utterance queued while the mic is idle starts on
+    the very next send (the pacing grid restarts there), so the stop clip starts
+    when the --stop-after timer fires.
+    """
+
+    def __init__(self, session: Any, st: "RunState") -> None:
+        self.session = session
+        self.st = st
+        self.chunk_bytes = int(AUDIO_RATE * CHUNK_S) * 2
+        self.silence = bytes(self.chunk_bytes)
+        self.queue: deque[Utterance] = deque()
+        self.wake = asyncio.Event()
+        self.speech_chunks = 0
+        self.silence_chunks = 0
+
+    def say(self, label: str, pcm: bytes) -> Utterance:
+        loop = asyncio.get_running_loop()
+        chunks = [pcm[i:i + self.chunk_bytes] for i in range(0, len(pcm), self.chunk_bytes)]
+        utt = Utterance(label, chunks, loop.create_future(), loop.create_future())
+        self.queue.append(utt)
+        self.wake.set()
+        return utt
+
+    def _fail_pending(self, current: Utterance | None) -> None:
+        for utt in ([current] if current else []) + list(self.queue):
+            for fut in (utt.started, utt.ended):
+                if not fut.done():
+                    fut.set_result(None)
+
+    async def run(self) -> None:
+        loop = asyncio.get_running_loop()
+        st = self.st
+        current: Utterance | None = None
+        idx = 0
+        next_t = loop.time()
+        while not (st.closed or st.ending):
+            self.wake.clear()
+            if current is None and self.queue:
+                current, idx = self.queue.popleft(), 0
+            data = current.chunks[idx] if current else self.silence
+            try:
+                await self.session.send_realtime_input(
+                    audio=types.Blob(data=data, mime_type=AUDIO_MIME))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if not (st.closed or st.ending):
+                    st.error("send_audio", err_text(exc))
+                self._fail_pending(current)
+                return
+            if current is None:
+                self.silence_chunks += 1
+            else:
+                self.speech_chunks += 1
+                if idx == 0:
+                    t = st.emit("user_audio_start", label=current.label,
+                                audio_s=round(sum(map(len, current.chunks)) / (AUDIO_RATE * 2), 3),
+                                chunks=len(current.chunks), chunk_ms=int(CHUNK_S * 1000),
+                                mime_type=AUDIO_MIME)
+                    st.utterances.append({"label": current.label, "start_ms": t})
+                    current.started.set_result(t)
+                idx += 1
+                if idx == len(current.chunks):
+                    t = st.emit("user_audio_end", label=current.label,
+                                since_start_ms=t_ms_since(st, current.started))
+                    st.utterances[-1]["end_ms"] = t
+                    current.ended.set_result(t)
+                    current = None
+            next_t += len(data) / (AUDIO_RATE * 2)
+            now = loop.time()
+            if next_t < now - 0.5:  # event loop stalled: resync instead of bursting
+                next_t = now
+            delay = next_t - now
+            if current is None and not self.queue:
+                try:
+                    await asyncio.wait_for(self.wake.wait(), max(0.0, delay))
+                    next_t = loop.time()  # utterance queued while idle: start now
+                except TimeoutError:
+                    pass
+            elif delay > 0:
+                await asyncio.sleep(delay)
+
+
+def t_ms_since(st: "RunState", started: asyncio.Future) -> int | None:
+    t0 = started.result() if started.done() else None
+    return None if t0 is None else st.clock.ms() - t0
+
+
 # -------------------------------------------------------------------- state --
 
 
@@ -179,7 +311,8 @@ class RunState:
     send_method: str | None = None
     first_call_id: str | None = None
     tool_call_at_ms: int | None = None
-    stop_sent_at_ms: int | None = None
+    stop_sent_at_ms: int | None = None  # audio: first chunk of the stop clip
+    stop_audio_end_ms: int | None = None  # audio: last chunk of the stop clip
     no_tool_call: bool = False
     done_reason: str = "unknown"
     closed: bool = False
@@ -205,6 +338,10 @@ class RunState:
     audio_bytes_total: int = 0
     tool_call_event: asyncio.Event = field(default_factory=asyncio.Event)
     tasks: list[asyncio.Task] = field(default_factory=list)
+    mic: Mic | None = None
+    utterances: list[dict] = field(default_factory=list)  # audio: label, start_ms, end_ms
+    vad_events: list[dict] = field(default_factory=list)
+    input_texts: list[tuple[int, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.service = BookingService(self.clock)
@@ -233,6 +370,9 @@ class RunState:
             self.error("server_error_message",
                        f"code={e.get('code')} status={e.get('status')} "
                        f"message={redact(str(e.get('message')))[:300]}")
+        for key in ("voiceActivity", "voiceActivityDetectionSignal"):
+            if key in data:
+                self.emit("raw_vad", key=key, payload=data[key])
         unknown = sorted(set(data) - KNOWN_RAW_TOP - {"error"})
         self.last_raw_unknown_only = bool(unknown) and len(unknown) == len(data)
         if unknown:
@@ -272,20 +412,28 @@ class RunState:
             self.emit("audio_segment", closed_by=reason, **self.audio_seg)
             self.audio_seg = None
 
+    def post_stop_ref(self) -> int | None:
+        """Where the post-stop windows start: the stop message (text input) or the
+        last chunk of the stop clip (audio input; the model cannot answer before it)."""
+        if self.args.input == "audio":
+            return self.stop_audio_end_ms
+        return self.stop_sent_at_ms
+
     def settled(self, now: int) -> bool:
         """Stop condition after the stop message (see README)."""
-        if self.stop_sent_at_ms is None:
+        ref = self.post_stop_ref()
+        if ref is None:
             return False
-        if now - self.stop_sent_at_ms < self.args.min_post_stop * 1000:
+        if now - ref < self.args.min_post_stop * 1000:
             return False
         if any(not t.done() for t in self.service.jobs.values()):
             return False
         # The model must have replied to the stop. A turn_complete that only closes
         # the interrupted turn (no output after the stop) does not count.
-        if self.last_output_ms < self.stop_sent_at_ms:
+        if self.last_output_ms < ref:
             return False
         last_tc = max(self.turn_complete_ms, default=-1)
-        if last_tc < self.stop_sent_at_ms:
+        if last_tc < ref:
             return False
         if self.last_output_ms > last_tc:  # model is mid-turn
             return False
@@ -319,6 +467,10 @@ def build_config(args: argparse.Namespace, modality: str) -> types.LiveConnectCo
     )
     if modality == "AUDIO":
         cfg["output_audio_transcription"] = types.AudioTranscriptionConfig()
+    if args.input == "audio":
+        # Logging only: shows what the server heard. realtime_input_config is not
+        # set, so automatic activity detection stays at the server default.
+        cfg["input_audio_transcription"] = types.AudioTranscriptionConfig()
     return types.LiveConnectConfig(**cfg)
 
 
@@ -454,7 +606,11 @@ def handle_server_content(st: RunState, sc: types.LiveServerContent) -> None:
         st.texts.append((t, st.turn_idx, sc.output_transcription.text))
         st.last_output_ms = t
     if sc.input_transcription and sc.input_transcription.text:
-        st.emit("input_transcript", text=sc.input_transcription.text)
+        t = st.emit("input_transcript", text=sc.input_transcription.text)
+        st.input_texts.append((t, sc.input_transcription.text))
+    iit = getattr(sc, "interim_input_transcription", None)
+    if iit is not None and iit.text:
+        st.emit("interim_input_transcript", text=iit.text)
     if sc.interrupted:
         st.flush_audio("interrupted")
         t = st.emit("interrupted", **extra)
@@ -472,10 +628,14 @@ def handle_server_content(st: RunState, sc: types.LiveServerContent) -> None:
         st.emit("server_content_status", **extra)
     handled = {"model_turn", "output_transcription", "input_transcription", "interrupted",
                "generation_complete", "turn_complete", "turn_complete_reason",
-               "waiting_for_input", "interaction_status"}
+               "waiting_for_input", "interaction_status", "interim_input_transcription"}
     other = sorted(k for k, v in sc if v is not None and k not in handled)
     if other:
         st.emit("unhandled_server_content", fields=other)
+
+
+def enum_str(v: Any) -> str | None:
+    return None if v is None else str(getattr(v, "value", v))
 
 
 async def receiver(session: Any, st: RunState) -> None:
@@ -505,8 +665,17 @@ async def receiver(session: Any, st: RunState) -> None:
                     st.emit("setup_complete_message")
                 if msg.session_resumption_update:
                     st.emit("session_resumption_update")
-                if msg.voice_activity or msg.voice_activity_detection_signal:
-                    st.emit("voice_activity")
+                if msg.voice_activity:
+                    va = msg.voice_activity
+                    kind = enum_str(va.voice_activity_type)
+                    t = st.emit("voice_activity", voice_activity_type=kind,
+                                audio_offset=va.audio_offset)
+                    st.vad_events.append({"at_ms": t, "type": kind,
+                                          "audio_offset": va.audio_offset})
+                if msg.voice_activity_detection_signal:
+                    kind = enum_str(msg.voice_activity_detection_signal.vad_signal_type)
+                    t = st.emit("vad_signal", vad_signal_type=kind)
+                    st.vad_events.append({"at_ms": t, "type": kind})
                 unhandled = sorted(k for k, v in msg if v is not None and k not in handled)
                 if unhandled:
                     st.emit("unhandled_message", type=type(msg).__name__, fields=unhandled)
@@ -531,8 +700,56 @@ async def receiver(session: Any, st: RunState) -> None:
             await asyncio.sleep(0.05)
 
 
+async def user_script_audio(session: Any, st: RunState) -> None:
+    """--input audio: both utterances go through the simulated open mic.
+
+    --stop-after counts from the tool call to the FIRST chunk of the stop clip.
+    --stop-after-request counts from the LAST chunk of the booking clip. There is
+    no send_client_content fallback in audio mode.
+    """
+    a = st.args
+    mic = Mic(session, st)
+    st.mic = mic
+    st.tasks.append(asyncio.create_task(mic.run()))
+    st.send_method = "realtime_audio"
+    book = mic.say("book_request", a.clips["book"])
+    book_end = await book.ended
+    if book_end is None:
+        st.no_tool_call = True
+        return
+    if a.stop_after_request is not None:
+        target = book_end + a.stop_after_request * 1000
+    else:
+        try:
+            await asyncio.wait_for(st.tool_call_event.wait(), a.tool_call_wait)
+        except TimeoutError:
+            pass
+        if st.tool_call_at_ms is None:
+            st.no_tool_call = True
+            st.emit("no_tool_call", waited_s=a.tool_call_wait, counted_from="book clip end")
+            return
+        target = st.tool_call_at_ms + a.stop_after * 1000
+    await asyncio.sleep(max(0.0, (target - st.clock.ms()) / 1000))
+    stop = mic.say("stop", a.clips["stop"])
+    started = await stop.started
+    if started is None:  # send failed (already logged)
+        st.stop_sent_at_ms = st.stop_audio_end_ms = st.clock.ms()
+        return
+    st.stop_sent_at_ms = started
+    if a.stop_after_request is not None:
+        st.emit("stop_sent", since_book_audio_end_ms=started - book_end,
+                tool_call_already_received=st.tool_call_at_ms is not None)
+    else:
+        st.emit("stop_sent", since_tool_call_ms=started - st.tool_call_at_ms)
+    ended = await stop.ended
+    st.stop_audio_end_ms = ended if ended is not None else st.clock.ms()
+
+
 async def user_script(session: Any, st: RunState) -> None:
     a = st.args
+    if a.input == "audio":
+        await user_script_audio(session, st)
+        return
     first = "realtime" if a.send_method == "auto" else a.send_method
     first_ok = True
     req_ms = st.clock.ms()
@@ -596,9 +813,10 @@ async def wait_until_done(st: RunState) -> str:
             return "ws_closed"
         if st.no_tool_call:
             return "no_tool_call"
-        if st.stop_sent_at_ms is not None:
+        ref = st.post_stop_ref()
+        if ref is not None:
             now = st.clock.ms()
-            if now - st.stop_sent_at_ms >= st.args.post_stop_window * 1000:
+            if now - ref >= st.args.post_stop_window * 1000:
                 return "post_stop_window_elapsed"
             if st.settled(now):
                 return "settled"
@@ -633,7 +851,10 @@ async def run_once(args: argparse.Namespace, run: int, modality: str, out: Jsonl
             min_post_stop_s=args.min_post_stop, latency_s=args.latency,
             honor_cancel=args.honor_cancel, scheduling=args.scheduling,
             scheduling_in=args.scheduling_in, respond=args.respond,
-            modality=modality, send_method_arg=args.send_method)
+            modality=modality, send_method_arg=args.send_method, input=args.input,
+            **({"clips_s": {k: round(pcm_seconds(v), 3) for k, v in args.clips.items()},
+                "chunk_ms": int(CHUNK_S * 1000), "mime_type": AUDIO_MIME}
+               if args.input == "audio" else {}))
     done_reason = "unknown"
     try:
         async with asyncio.timeout(args.run_timeout):
@@ -726,16 +947,21 @@ def summarize(st: RunState) -> dict:
     if st.not_started:
         parts.append("not started (call id already cancelled)")
     service = "; ".join(parts) if parts else ("no" if st.tool_calls else "n/a")
-    return {
+    audio = a.input == "audio"
+    row = {
         "run": st.run,
+        "input": a.input,
         "behavior": a.behavior,
         "stop_after_s": (a.stop_after if a.stop_after_request is None
-                         else f"{a.stop_after_request} after request"),
+                         else f"{a.stop_after_request} after "
+                              + ("book clip end" if audio else "request")),
         "latency_s": a.latency,
         "tool_call_at_ms": ("no_tool_call" if st.tool_call_at_ms is None
                             else rel(st.tool_call_at_ms, st) if a.stop_after_request is not None
                             else st.tool_call_at_ms),
         "stop_sent_at_ms": stop if stop is not None else "-",
+        "stop_audio_end_ms": ("n/a" if not audio else st.stop_audio_end_ms
+                              if st.stop_audio_end_ms is not None else "-"),
         "interrupted_seen": interrupted,
         "cancellation_seen": cancellation,
         "service_committed": service,
@@ -749,6 +975,23 @@ def summarize(st: RunState) -> dict:
         "modality": st.modality,
         "audio_chunks": st.audio_chunks_total,
     }
+    if audio:
+        end = st.stop_audio_end_ms
+        row.update({
+            "user_audio": st.utterances,
+            "mic_chunks": ({"speech": st.mic.speech_chunks, "silence": st.mic.silence_chunks}
+                           if st.mic else None),
+            "vad_events": [dict(e, vs_stop_ms=(e["at_ms"] - stop if stop is not None else None))
+                           for e in st.vad_events],
+            "input_transcript": " / ".join(re.sub(r"\s+", " ", x).strip()
+                                           for _, x in st.input_texts if x.strip()),
+            "model_during_stop_clip": join_turns(
+                [c for c in st.texts if stop is not None and stop <= c[0]
+                 and (end is None or c[0] < end)])[:300],
+            "model_after_stop_audio_end": join_turns(
+                [c for c in st.texts if end is not None and c[0] >= end])[:300],
+        })
+    return row
 
 
 COLUMNS = ["run", "behavior", "stop_after_s", "latency_s", "tool_call_at_ms",
@@ -757,25 +1000,42 @@ COLUMNS = ["run", "behavior", "stop_after_s", "latency_s", "tool_call_at_ms",
            "tool_response_sent_ms"]
 
 
+def table_columns(args: argparse.Namespace) -> list[str]:
+    cols = ["run", "input"] + COLUMNS[1:]
+    if args.input == "audio":
+        cols.insert(cols.index("stop_sent_at_ms") + 1, "stop_audio_end_ms")
+    return cols
+
+
 def append_summary(path: Path, args: argparse.Namespace, rows: list[dict],
                    modality: str) -> str:
+    cols = table_columns(args)
+    audio_note = ""
+    if args.input == "audio":
+        audio_note = (
+            f", input=audio (book clip {pcm_seconds(args.clips['book']):.3f} s, stop clip "
+            f"{pcm_seconds(args.clips['stop']):.3f} s, {AUDIO_MIME}, "
+            f"{int(CHUNK_S * 1000)} ms chunks paced in real time, silence between utterances, "
+            "automatic VAD at server default). stop_sent_at_ms is the first chunk of the "
+            "stop clip, stop_audio_end_ms the last")
     lines = [
         f"### {args.name}",
         "",
         f"model `{args.model}`, google-genai {SDK_VERSION}, "
         f"{datetime.now().strftime('%Y-%m-%d %H:%M')}, behavior={args.behavior}, "
         + (f"stop_after={args.stop_after}s, " if args.stop_after_request is None
-           else f"stop_after_request={args.stop_after_request}s (after booking request), ")
+           else f"stop_after_request={args.stop_after_request}s (after "
+                + ("end of booking clip), " if args.input == "audio" else "booking request), "))
         + f"latency={args.latency}s, "
         f"honor_cancel={'yes' if args.honor_cancel else 'no'}, "
         f"scheduling={args.scheduling} (in {args.scheduling_in}), respond={args.respond}, "
-        f"modality={modality}. Times are ms since session start.",
+        f"modality={modality}{audio_note}. Times are ms since session start.",
         "",
-        "| " + " | ".join(COLUMNS) + " |",
-        "|" + "---|" * len(COLUMNS),
+        "| " + " | ".join(cols) + " |",
+        "|" + "---|" * len(cols),
     ]
     for r in rows:
-        lines.append("| " + " | ".join(md(r[c]) for c in COLUMNS) + " |")
+        lines.append("| " + " | ".join(md(r.get(c, "-")) for c in cols) + " |")
     block = "\n".join(lines) + "\n\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
@@ -796,14 +1056,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--behavior", choices=["unset", "BLOCKING", "NON_BLOCKING"],
                    default="unset", help="FunctionDeclaration.behavior")
+    p.add_argument("--input", choices=["text", "audio"], default="text",
+                   help="text: send_realtime_input(text=...); audio: stream --book-audio and "
+                        "--stop-audio as 16 kHz PCM in 100 ms chunks paced in real time, "
+                        "silence between utterances, automatic VAD at server default")
+    p.add_argument("--book-audio", default=str(AUDIO_DIR / "book.wav"),
+                   help="16 kHz 16-bit mono WAV for the booking request (--input audio)")
+    p.add_argument("--stop-audio", default=str(AUDIO_DIR / "stop.wav"),
+                   help="16 kHz 16-bit mono WAV for the stop (--input audio)")
     p.add_argument("--stop-after", type=float, default=1.0,
-                   help="seconds after the tool call arrives to send the stop message")
+                   help="seconds after the tool call arrives to send the stop message "
+                        "(audio: to the first chunk of the stop clip)")
     p.add_argument("--stop-after-request", type=float, default=None,
                    help="send the stop this many seconds after the booking request instead "
-                        "(timer starts at the request, not at the tool call; overrides "
-                        "--stop-after; no send_client_content fallback)")
+                        "(timer starts at the request, not at the tool call; audio: at the "
+                        "last chunk of the booking clip; overrides --stop-after; no "
+                        "send_client_content fallback)")
     p.add_argument("--min-post-stop", type=float, default=0.0,
-                   help="keep listening at least this many seconds after the stop")
+                   help="keep listening at least this many seconds after the stop "
+                        "(audio: after the end of the stop clip; same for --post-stop-window)")
     p.add_argument("--latency", type=float, default=4.0,
                    help="seconds the fake booking service takes to commit")
     p.add_argument("--respond", choices=["immediate", "never"], default="immediate",
@@ -834,11 +1105,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                 else f"stopreq{args.stop_after_request}")
         args.name = (f"{args.behavior.lower()}_{stop}_lat{args.latency}"
                      f"{'_honor' if args.honor_cancel else ''}"
-                     f"{'' if args.scheduling == 'none' else '_' + args.scheduling.lower()}")
+                     f"{'' if args.scheduling == 'none' else '_' + args.scheduling.lower()}"
+                     f"{'_audio' if args.input == 'audio' else ''}")
+    args.clips = {}
     return args
 
 
 async def amain(args: argparse.Namespace, connect: Callable[..., Any] | None = None) -> int:
+    if args.input == "audio" and not args.clips:
+        try:
+            args.clips = {"book": load_pcm(Path(args.book_audio)),
+                          "stop": load_pcm(Path(args.stop_audio))}
+        except Exception as exc:
+            print(f"cannot load audio clips: {exc}", file=sys.stderr)
+            return 2
     if connect is None:
         load_dotenv(HERE / ".env")
         key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -869,13 +1149,16 @@ async def amain(args: argparse.Namespace, connect: Callable[..., Any] | None = N
             except Exception as exc:  # never let one run kill the matrix
                 quota = err_text(exc) if QUOTA_RE.search(err_text(exc)) else None
                 out.write(run, -1, "run_crashed", detail=err_text(exc))
-                row = {c: "-" for c in COLUMNS} | {"run": run, "errors": err_text(exc)}
+                row = {c: "-" for c in table_columns(args)} | {"run": run,
+                                                               "errors": err_text(exc)}
                 row.update(behavior=args.behavior, stop_after_s=args.stop_after,
-                           latency_s=args.latency)
+                           latency_s=args.latency, input=args.input)
             out.write(run, -1, "run_end", summary=row)
             rows.append(row)
             print(redact(f"[{args.name} run {run}/{args.runs}] tool_call={row['tool_call_at_ms']} "
-                         f"stop={row['stop_sent_at_ms']} interrupted={row['interrupted_seen']} "
+                         f"stop={row['stop_sent_at_ms']}"
+                         + (f"..{row['stop_audio_end_ms']}" if args.input == "audio" else "")
+                         + f" interrupted={row['interrupted_seen']} "
                          f"cancellation={row['cancellation_seen']} "
                          f"service={row['service_committed']} "
                          f"said_after_stop=\"{row['model_after_stop']}\" "
