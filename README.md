@@ -55,12 +55,19 @@ say -v Samantha --file-format=WAVE --data-format=LEI16@16000 \
     -o assets/audio/book.wav "Book me the 3pm slot tomorrow, please."
 say -v Samantha --file-format=WAVE --data-format=LEI16@16000 \
     -o assets/audio/stop.wav "Actually, stop. Don't book it."
+# scenario G (2026-09-30)
+say -v Samantha --file-format=WAVE --data-format=LEI16@16000 \
+    -o assets/audio/book_bring.wav "Book me the 3pm slot tomorrow, and while you do that, tell me what I should bring to the appointment."
+say -v Samantha --file-format=WAVE --data-format=LEI16@16000 \
+    -o assets/audio/bring.wav "While you do that, what should I bring to the appointment?"
 ```
 
 | clip | text | duration | samples | 100 ms chunks | speech (\|x\| > 300) |
 |---|---|---|---|---|---|
 | `book.wav` | Book me the 3pm slot tomorrow, please. | 2.686 s | 42,977 | 27 | 0.006-2.643 s |
 | `stop.wav` | Actually, stop. Don't book it. | 2.226 s | 35,613 | 23 | 0.006-2.189 s |
+| `book_bring.wav` (G1) | Book me the 3pm slot tomorrow, and while you do that, tell me what I should bring to the appointment. | 5.647 s | 90,346 | 57 | 0.006-5.611 s |
+| `bring.wav` (G2) | While you do that, what should I bring to the appointment? | 2.870 s | 45,921 | 29 | 0.005-2.831 s |
 
 (Checked with Python `wave` and `afinfo`: 16000 Hz, 1 channel, Int16.)
 
@@ -126,6 +133,61 @@ an "Audio input" section to `results/summary.md` (text results are kept):
 | audio_D | unset | 5.5 s after the tool call (after the commit) | 4.0 s | yes |
 | audio_F | unset | 0.3 s after the end of the booking clip (`--min-post-stop 5`, as F) | 4.0 s | yes |
 
+### Scenario G: barge-in while the model speaks, call still pending
+
+In every default-behaviour run above, the model's turn held only the
+`book_slot` call and the model stayed silent until the tool response, so the
+stop never landed on model speech while the call was pending. G sets that up:
+
+- `--input audio`, behavior unset (NON_BLOCKING is the model default),
+  `--honor-cancel`, `--latency 7.0` so the call is still pending while the
+  model speaks, `--post-stop-window 15`.
+- `--stop-after-model-speech S` starts the stop clip S seconds after the
+  first model audio chunk that arrives after the `book_slot` call, and only if
+  no tool response has been sent yet. Otherwise the stop is skipped (a
+  `stop_skipped` event, with the reason in the `stop_sent_at_ms` column), and
+  the run ends once every job is done and the model has been quiet for
+  `--quiet` s.
+- G1 replaced the request with `--book-audio assets/audio/book_bring.wav`.
+  In its smoke session the model said nothing before the tool response, so
+  G1 was dropped.
+- G2 keeps `book.wav`, and `--followup-audio assets/audio/bring.wav
+  --followup-after-tool-call 0.5` streams a second question 0.5 s after the
+  call arrives. The model answers it while the call is pending, and the stop
+  lands on that answer.
+- G tables add `model_speech_start_ms` (the first model audio chunk after the
+  call, and its offset from the call) and `cancellation_ids_match` (whether
+  the `toolCallCancellation` ids name the call that was pending when the stop
+  clip started). The JSONL `run_end` summary also lists the tool calls, the
+  pending ids, cancellations, service outcomes, tool responses, the
+  `interrupted` / `generation_complete` / `turn_complete` times, the model
+  turns and input transcripts with times, and what the model said after the
+  tool response.
+
+`run_g.sh` runs G2 and an audio_C re-run, N=3 each, with `--save-audio`.
+
+### Saving audio (`--save-audio`)
+
+Per run, in `results/audio_out/`:
+
+- `<scenario>_run<N>_model.wav`: every model audio chunk received,
+  concatenated in arrival order, mono 16-bit. The sample rate comes from the
+  chunk mime type (`audio/pcm;rate=24000` in every run so far); 24 kHz is the
+  fallback if the mime type has no rate.
+- `<scenario>_run<N>_audio.json`: the sidecar. Per chunk: `t_ms` (arrival,
+  ms since session start), `turn`, `bytes`, `wav_offset_ms`, `duration_ms`.
+  The server sends audio faster than real time (in G2, about 5 s of audio
+  within about 1.2 s), so place each chunk at its `t_ms` or later, not at
+  `wav_offset_ms`. The WAV keeps everything received, including audio that a
+  client playing in real time would still have had queued when
+  `interrupted` arrived. The sidecar also lists the user clips with
+  `sent_start_ms` / `sent_end_ms` (first and last chunk sent), and the tool
+  calls, tool responses, service outcomes, cancellations, `interrupted`,
+  `generation_complete` and `turn_complete` times, voice activity, and the
+  model and input transcripts with times.
+- `<scenario>_run<N>_user_<label>.wav`: copies of the clips that were sent
+  (`book_request`, `followup`, `stop`), 16 kHz.
+
 Output:
 
 - `results/<scenario>.jsonl`: one JSON object per event. Each run ends with a
@@ -147,6 +209,7 @@ uv run stop_test.py -n 1 --name smoke -v
 ./run_all.sh                  # matrix A-F, N=3 each; prints results/summary.md
 MODALITY=AUDIO ./run_all.sh   # skip the TEXT probe (this model rejects TEXT)
 ./run_audio.sh                # audio input: A, C, D, F with N=3; appends to summary.md
+./run_g.sh                    # G2 and an audio_C re-run, N=3 each, with --save-audio
 ```
 
 `run_all.sh` moves earlier results to `results/archive-<timestamp>/` and does
@@ -168,7 +231,8 @@ Useful flags: `--behavior {unset,BLOCKING,NON_BLOCKING}`,
 `--scheduling-in {field,response,both}`, `--respond {immediate,never}`,
 `--modality {auto,TEXT,AUDIO}`, `--send-method {auto,realtime,client_content}`,
 `--input {text,audio}` (with `--book-audio` and `--stop-audio` to use other
-16 kHz mono WAV files).
+16 kHz mono WAV files), `--stop-after-model-speech S`,
+`--followup-audio WAV` with `--followup-after-tool-call S`, `--save-audio`.
 `--stop-after-request S` starts the stop timer at the booking request instead
 of at the tool call, and turns off the `send_client_content` fallback.
 `--min-post-stop S` keeps listening at least S seconds after the stop. F uses
@@ -345,6 +409,43 @@ stop clip (A, C, D). `ACTIVITY_END` came 1188-1279 ms after its last chunk
 
 `results/summary.md` ends with a text vs audio table for A, C, D and F.
 
+## Findings, barge-in while the model speaks (2026-09-30)
+
+Eight audio sessions: G1 smoke (1), G2 smoke (1), G2 (N=3), and an audio_C
+re-run with `--save-audio` (N=3). With them, the results hold 41 sessions
+(21 text, 20 audio), and none of the 41 had a `toolCallCancellation`.
+
+- G1 (smoke): with the request "Book me the 3pm slot tomorrow, and while you
+  do that, tell me what I should bring to the appointment.", the model's turn
+  held only the `book_slot` call. It said nothing for 7.6 s, until 626 ms
+  after the tool response, and then confirmed the booking and answered the
+  question in one turn.
+- G2 (smoke plus N=3): after the follow-up question, the model spoke while
+  the call was pending, 4856-4918 ms after the call, for example "I am
+  booking the 3 PM slot for you now. Please bring your ID and any necessary
+  paperwork to the appointment." When `interrupted` arrived, the harness had
+  already received 4.7-5.4 s of audio for that turn, over 1.1-1.2 s of wall
+  time. In all four sessions, `interrupted` arrived in the same millisecond
+  as `ACTIVITY_START` for the stop, 144-238 ms after the stop clip started.
+  No `toolCallCancellation` arrived. The pending call (`call_1019612`,
+  `call_1199193`, `call_975170` in the N=3 runs) was never cancelled, and no
+  second `book_slot` call came. The fake booking committed 7.0 s after the
+  call, 0.9-1.0 s after `interrupted`. The tool response (`status: booked`)
+  went out 0-5 ms later, and the server sent no error or other message in
+  reply to it. 0.5-0.9 s after `ACTIVITY_END` for the stop, the model said
+  the booking was already made ("It is too late to stop; the booking for
+  tomorrow at 3 PM was already made."). That matches the tool response, but
+  in text A and B the model said the same kind of thing before any tool
+  response had been sent.
+- audio_C re-run: `interrupted` arrived 147-262 ms after the stop clip
+  started, with no `toolCallCancellation`. Run 2 double-booked again: a
+  second `book_slot` call came 355 ms after `ACTIVITY_END`, and both
+  bookings committed. In runs 1 and 3, one booking committed and the tool
+  response said `booked`. 1256 and 1172 ms after the commit, the model said
+  "The booking was not made, so nothing has been scheduled." and "The
+  booking was not made as you requested." The model audio of all eight
+  sessions is in `results/audio_out/`.
+
 ## What this does not establish
 
 - The booking service is a fake in-process `asyncio` job, not a real backend.
@@ -361,8 +462,12 @@ stop clip (A, C, D). `ACTIVITY_END` came 1188-1279 ms after its last chunk
   latency after `stop_audio_end_ms`. The text runs had neither.
 - It uses the Google AI Studio endpoint with an API key, not Vertex AI. It
   does not cover other models, and it does not cover session resumption.
-- N=3 per scenario on one day (33 sessions in all: 21 text, 12 audio). That
-  shows what can happen, not how often.
+- N=3 per scenario, plus one smoke session each for G1 and G2, over two
+  days: 41 sessions in all, 21 text and 20 audio. That shows what can
+  happen, not how often.
+- G needed a follow-up question to make the model speak while the call was
+  pending. With the G1 wording it did not. Other prompts, voices, or
+  longer-running calls may behave differently.
   Model wording varies between runs. D was run twice: the first pass was
   affected by the stop-condition bug, and the second is the D re-run.
 - "What the model said after stop" counts everything received after the stop
@@ -379,8 +484,12 @@ stop clip (A, C, D). `ACTIVITY_END` came 1188-1279 ms after its last chunk
 - `run_all.sh`: runs scenarios A-F with N=3 and prints the summary.
 - `run_audio.sh`: runs audio_A, audio_C, audio_D, audio_F with
   `--input audio`, N=3, and appends to the summary.
+- `run_g.sh`: runs G2 and the audio_C re-run with `--save-audio`, N=3 each,
+  and appends to the summary.
 - `assets/audio/book.wav`, `assets/audio/stop.wav`: the two utterances as
   16 kHz 16-bit mono PCM WAV (macOS `say`, voice Samantha).
+  `book_bring.wav` (G1) and `bring.wav` (G2) were made the same way.
 - `introspect.py`: prints the SDK version and the fields and signatures used.
 - `.env.example`: `GEMINI_API_KEY=` placeholder. `.env` is git-ignored.
-- `results/`: JSONL timelines and `summary.md`.
+- `results/`: JSONL timelines and `summary.md`. `results/audio_out/`: WAV
+  files and sidecars written by `--save-audio`.

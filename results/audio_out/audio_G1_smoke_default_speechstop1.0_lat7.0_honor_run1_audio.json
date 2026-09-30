@@ -1,0 +1,279 @@
+{
+ "scenario": "audio_G1_smoke_default_speechstop1.0_lat7.0_honor",
+ "run": 1,
+ "wall": "2026-09-30T22:03:33",
+ "model": "gemini-3.8-live",
+ "time_base": "ms since session start (time.monotonic() when the run started). t_ms of a model chunk is when the harness received it; sent_start_ms / sent_end_ms of a user clip are when its first / last 100 ms chunk was sent.",
+ "model_audio": {
+  "file": "audio_G1_smoke_default_speechstop1.0_lat7.0_honor_run1_model.wav",
+  "mime_types": [
+   "audio/pcm;rate=24000"
+  ],
+  "sample_rate": 24000,
+  "sample_rate_from": "mime type",
+  "channels": 1,
+  "sample_width_bits": 16,
+  "duration_s": 7.36,
+  "chunks": 22,
+  "first_chunk_ms": 14842,
+  "last_chunk_ms": 16601,
+  "note": "Chunks are concatenated in arrival order with no gaps. The server sends audio faster than real time, so wav_offset_ms is not the arrival time: place each chunk at its t_ms or later. A client that plays audio drops what is still queued when `interrupted` arrives; this file keeps everything received."
+ },
+ "chunks": [
+  {
+   "t_ms": 14842,
+   "turn": 1,
+   "bytes": 2,
+   "wav_offset_ms": 0.0,
+   "duration_ms": 0.0
+  },
+  {
+   "t_ms": 14897,
+   "turn": 1,
+   "bytes": 7680,
+   "wav_offset_ms": 0.0,
+   "duration_ms": 160.0
+  },
+  {
+   "t_ms": 14953,
+   "turn": 1,
+   "bytes": 13440,
+   "wav_offset_ms": 160.0,
+   "duration_ms": 280.0
+  },
+  {
+   "t_ms": 15009,
+   "turn": 1,
+   "bytes": 9600,
+   "wav_offset_ms": 440.0,
+   "duration_ms": 200.0
+  },
+  {
+   "t_ms": 15036,
+   "turn": 1,
+   "bytes": 5760,
+   "wav_offset_ms": 640.0,
+   "duration_ms": 120.0
+  },
+  {
+   "t_ms": 15113,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 760.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 15210,
+   "turn": 1,
+   "bytes": 19200,
+   "wav_offset_ms": 1080.0,
+   "duration_ms": 400.0
+  },
+  {
+   "t_ms": 15267,
+   "turn": 1,
+   "bytes": 13440,
+   "wav_offset_ms": 1480.0,
+   "duration_ms": 280.0
+  },
+  {
+   "t_ms": 15447,
+   "turn": 1,
+   "bytes": 36480,
+   "wav_offset_ms": 1760.0,
+   "duration_ms": 760.0
+  },
+  {
+   "t_ms": 15491,
+   "turn": 1,
+   "bytes": 11520,
+   "wav_offset_ms": 2520.0,
+   "duration_ms": 240.0
+  },
+  {
+   "t_ms": 15589,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 2760.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 15662,
+   "turn": 1,
+   "bytes": 17280,
+   "wav_offset_ms": 3080.0,
+   "duration_ms": 360.0
+  },
+  {
+   "t_ms": 15756,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 3440.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 15897,
+   "turn": 1,
+   "bytes": 30720,
+   "wav_offset_ms": 3760.0,
+   "duration_ms": 640.0
+  },
+  {
+   "t_ms": 15976,
+   "turn": 1,
+   "bytes": 17280,
+   "wav_offset_ms": 4400.0,
+   "duration_ms": 360.0
+  },
+  {
+   "t_ms": 16072,
+   "turn": 1,
+   "bytes": 17280,
+   "wav_offset_ms": 4760.0,
+   "duration_ms": 360.0
+  },
+  {
+   "t_ms": 16145,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 5120.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 16203,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 5440.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 16387,
+   "turn": 1,
+   "bytes": 32640,
+   "wav_offset_ms": 5760.0,
+   "duration_ms": 680.0
+  },
+  {
+   "t_ms": 16459,
+   "turn": 1,
+   "bytes": 15360,
+   "wav_offset_ms": 6440.0,
+   "duration_ms": 320.0
+  },
+  {
+   "t_ms": 16545,
+   "turn": 1,
+   "bytes": 19200,
+   "wav_offset_ms": 6760.0,
+   "duration_ms": 400.0
+  },
+  {
+   "t_ms": 16601,
+   "turn": 1,
+   "bytes": 9600,
+   "wav_offset_ms": 7160.0,
+   "duration_ms": 200.0
+  }
+ ],
+ "user_clips": [
+  {
+   "label": "book_request",
+   "file": "audio_G1_smoke_default_speechstop1.0_lat7.0_honor_run1_user_book_request.wav",
+   "source": "book_bring.wav",
+   "sent_start_ms": 404,
+   "sent_end_ms": 6004,
+   "duration_ms": 5646.6,
+   "sample_rate": 16000
+  }
+ ],
+ "events": {
+  "tool_calls": [
+   {
+    "id": "call_947444",
+    "name": "book_slot",
+    "at_ms": 7211
+   }
+  ],
+  "tool_responses": [
+   {
+    "at_ms": 14216,
+    "call_id": "call_947444"
+   }
+  ],
+  "service": [
+   {
+    "job_id": "job-1",
+    "call_id": "call_947444",
+    "outcome": "committed",
+    "at_ms": 14212
+   }
+  ],
+  "cancellations": [],
+  "interrupted_ms": [],
+  "generation_complete_ms": [
+   7212,
+   16629
+  ],
+  "turn_complete_ms": [
+   7212,
+   22258
+  ],
+  "voice_activity": [
+   {
+    "at_ms": 555,
+    "type": "ACTIVITY_START",
+    "audio_offset": "0.160s"
+   },
+   {
+    "at_ms": 7211,
+    "type": "ACTIVITY_END",
+    "audio_offset": "6.840s"
+   }
+  ],
+  "stop_sent_at_ms": null,
+  "stop_audio_end_ms": null,
+  "model_transcript": [
+   {
+    "t_ms": 14842,
+    "turn": 1,
+    "text": "I have booked your appointment "
+   },
+   {
+    "t_ms": 15113,
+    "turn": 1,
+    "text": "for tomorrow at 3"
+   },
+   {
+    "t_ms": 15447,
+    "turn": 1,
+    "text": " p.m. Please remember"
+   },
+   {
+    "t_ms": 15589,
+    "turn": 1,
+    "text": " to bring your personal"
+   },
+   {
+    "t_ms": 15897,
+    "turn": 1,
+    "text": " identification"
+   },
+   {
+    "t_ms": 16072,
+    "turn": 1,
+    "text": " and any relevant"
+   },
+   {
+    "t_ms": 16387,
+    "turn": 1,
+    "text": " documents."
+   }
+  ],
+  "input_transcript": [
+   {
+    "t_ms": 7211,
+    "text": "Book me the 3:00 p.m. slot tomorrow, and while you do that, tell me what I should bring to the appointment."
+   }
+  ]
+ }
+}

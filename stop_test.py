@@ -14,6 +14,13 @@ One run = one Live session:
 between utterances like an open microphone. Automatic activity detection (VAD) is
 left at the server default.
 
+--stop-after-model-speech S (audio input, scenario G) starts the stop clip S seconds
+after the first model audio chunk that arrives after the book_slot call, and only if
+no tool response has been sent yet, so the stop barges in while the model is speaking
+with the call still pending. --save-audio writes the model's output audio of each run
+as a WAV plus a JSON sidecar with chunk arrival times and copies of the user clips
+(results/audio_out/).
+
 Writes results/<name>.jsonl (one JSON object per event) and appends a Markdown
 table to results/summary.md after the N runs. The API key is read only from
 GEMINI_API_KEY (.env in this folder or the environment) and is never printed.
@@ -26,6 +33,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import wave
@@ -62,6 +70,7 @@ AUDIO_DIR = HERE / "assets" / "audio"
 AUDIO_RATE = 16000  # Hz; clips are 16-bit little-endian mono PCM
 AUDIO_MIME = f"audio/pcm;rate={AUDIO_RATE}"
 CHUNK_S = 0.1  # seconds of audio per send_realtime_input(audio=...) call
+MODEL_AUDIO_RATE = 24000  # Hz; used for --save-audio only if the mime type has no rate
 
 # Raw (camelCase) keys this script knows about. Anything else is logged by name.
 KNOWN_RAW_TOP = {
@@ -342,6 +351,17 @@ class RunState:
     utterances: list[dict] = field(default_factory=list)  # audio: label, start_ms, end_ms
     vad_events: list[dict] = field(default_factory=list)
     input_texts: list[tuple[int, str]] = field(default_factory=list)
+    wall: str = ""
+    first_audio_ms: int | None = None        # first model audio chunk of the session
+    speech_after_call_ms: int | None = None  # first model audio chunk after the first tool call
+    model_speech_event: asyncio.Event = field(default_factory=asyncio.Event)
+    tool_response_event: asyncio.Event = field(default_factory=asyncio.Event)
+    stop_skipped: str | None = None  # --stop-after-model-speech: why no stop was sent
+    stop_skipped_ms: int | None = None
+    pending_at_stop: list[str] = field(default_factory=list)  # call ids pending at the stop
+    generation_complete_ms: list[int] = field(default_factory=list)
+    audio_out: list[dict] = field(default_factory=list)  # --save-audio: per-chunk metadata
+    audio_data: list[bytes] = field(default_factory=list)  # --save-audio: chunk bytes
 
     def __post_init__(self) -> None:
         self.service = BookingService(self.clock)
@@ -395,7 +415,16 @@ class RunState:
             self.errors.append(f"ws_closed code={code} {reason}".strip())
 
     # audio accounting: one summary event per contiguous segment
-    def audio_chunk(self, nbytes: int) -> None:
+    def pending_call_ids(self) -> list[str]:
+        """book_slot calls with no tool response sent whose job was not cancelled."""
+        responded = {r["call_id"] for r in self.tool_responses}
+        cancelled = {o["call_id"] for o in self.job_outcomes if o["outcome"] == "cancelled"}
+        return [c["id"] for c in self.tool_calls if c["name"] == "book_slot"
+                and c["id"] not in responded and c["id"] not in cancelled
+                and c["id"] not in self.not_started]
+
+    def audio_chunk(self, data: bytes, mime: str) -> None:
+        nbytes = len(data)
         t = self.clock.ms()
         self.audio_chunks_total += 1
         self.audio_bytes_total += nbytes
@@ -406,6 +435,18 @@ class RunState:
         self.audio_seg["chunks"] += 1
         self.audio_seg["bytes"] += nbytes
         self.last_output_ms = t
+        if self.first_audio_ms is None:
+            self.first_audio_ms = t
+        if self.tool_call_at_ms is not None and self.speech_after_call_ms is None:
+            self.speech_after_call_ms = t
+            self.emit("model_speech_after_tool_call", since_tool_call_ms=t - self.tool_call_at_ms,
+                      pending_call_ids=self.pending_call_ids(),
+                      tool_response_already_sent=bool(self.tool_responses))
+            self.model_speech_event.set()
+        if self.args.save_audio:
+            self.audio_out.append({"t_ms": t, "bytes": nbytes, "mime_type": mime,
+                                   "turn": self.turn_idx})
+            self.audio_data.append(data)
 
     def flush_audio(self, reason: str) -> None:
         if self.audio_seg is not None:
@@ -441,6 +482,17 @@ class RunState:
         if last_resp > last_tc:  # give the model a chance to react to the response
             return now - max(last_resp, self.last_output_ms) >= self.args.quiet * 1000
         return True
+
+    def settled_without_stop(self, now: int) -> bool:
+        """--stop-after-model-speech skipped the stop: end once every job is done, the
+        model is not mid-turn, and --quiet s passed since the last output or response."""
+        if any(not t.done() for t in self.service.jobs.values()):
+            return False
+        if self.last_output_ms > max(self.turn_complete_ms, default=-1):
+            return False
+        last = max([self.stop_skipped_ms or 0, self.last_output_ms]
+                   + [r["at_ms"] for r in self.tool_responses])
+        return now - last >= self.args.quiet * 1000
 
 
 # ------------------------------------------------------------------- config --
@@ -526,6 +578,7 @@ async def respond_when_done(session: Any, st: RunState, fc_id: str, name: str,
                     scheduling=st.args.scheduling, scheduling_in=st.args.scheduling_in,
                     response=fr.response)
         st.tool_responses.append({"at_ms": t, "call_id": fc_id})
+        st.tool_response_event.set()
     except Exception as exc:
         st.error("send_tool_response", err_text(exc))
 
@@ -590,7 +643,7 @@ def handle_server_content(st: RunState, sc: types.LiveServerContent) -> None:
     if sc.model_turn and sc.model_turn.parts:
         for part in sc.model_turn.parts:
             if part.inline_data is not None and (part.inline_data.mime_type or "").startswith("audio"):
-                st.audio_chunk(len(part.inline_data.data or b""))
+                st.audio_chunk(part.inline_data.data or b"", part.inline_data.mime_type or "")
             elif part.text:
                 if part.thought:
                     st.emit("model_thought", text=part.text[:400])
@@ -618,7 +671,7 @@ def handle_server_content(st: RunState, sc: types.LiveServerContent) -> None:
         st.turn_idx += 1
     if sc.generation_complete:
         st.flush_audio("generation_complete")
-        st.emit("generation_complete", **extra)
+        st.generation_complete_ms.append(st.emit("generation_complete", **extra))
     if sc.turn_complete:
         st.flush_audio("turn_complete")
         t = st.emit("turn_complete", **extra)
@@ -700,6 +753,30 @@ async def receiver(session: Any, st: RunState) -> None:
             await asyncio.sleep(0.05)
 
 
+def skip_stop(st: RunState, reason: str) -> None:
+    st.stop_skipped = reason
+    st.stop_skipped_ms = st.emit("stop_skipped", reason=reason,
+                                 pending_call_ids=st.pending_call_ids())
+
+
+async def wait_for_model_speech(st: RunState) -> int | None:
+    """Anchor for --stop-after-model-speech: the first model audio chunk after the tool
+    call. Returns None (stop skipped) if the tool response goes out first, or if no
+    model audio arrives within --tool-call-wait s."""
+    if st.speech_after_call_ms is None and not st.tool_responses:
+        waits = [asyncio.create_task(st.model_speech_event.wait()),
+                 asyncio.create_task(st.tool_response_event.wait())]
+        _, pending = await asyncio.wait(waits, timeout=st.args.tool_call_wait,
+                                        return_when=asyncio.FIRST_COMPLETED)
+        for t in pending:
+            t.cancel()
+    if st.speech_after_call_ms is not None:
+        return st.speech_after_call_ms
+    skip_stop(st, "tool_response_sent_before_model_speech" if st.tool_responses
+              else f"no_model_speech_within_{st.args.tool_call_wait}s_after_tool_call")
+    return None
+
+
 async def user_script_audio(session: Any, st: RunState) -> None:
     """--input audio: both utterances go through the simulated open mic.
 
@@ -728,17 +805,38 @@ async def user_script_audio(session: Any, st: RunState) -> None:
             st.no_tool_call = True
             st.emit("no_tool_call", waited_s=a.tool_call_wait, counted_from="book clip end")
             return
-        target = st.tool_call_at_ms + a.stop_after * 1000
+        if a.followup_audio is not None:
+            target = st.tool_call_at_ms + a.followup_after_tool_call * 1000
+            await asyncio.sleep(max(0.0, (target - st.clock.ms()) / 1000))
+            mic.say("followup", a.clips["followup"])
+            st.emit("followup_queued", since_tool_call_ms=st.clock.ms() - st.tool_call_at_ms,
+                    pending_call_ids=st.pending_call_ids())
+        if a.stop_after_model_speech is not None:
+            anchor = await wait_for_model_speech(st)
+            if anchor is None:
+                return
+            target = anchor + a.stop_after_model_speech * 1000
+        else:
+            target = st.tool_call_at_ms + a.stop_after * 1000
     await asyncio.sleep(max(0.0, (target - st.clock.ms()) / 1000))
+    if a.stop_after_model_speech is not None and st.tool_responses:
+        skip_stop(st, "tool_response_sent_before_stop")
+        return
     stop = mic.say("stop", a.clips["stop"])
     started = await stop.started
     if started is None:  # send failed (already logged)
         st.stop_sent_at_ms = st.stop_audio_end_ms = st.clock.ms()
         return
     st.stop_sent_at_ms = started
+    st.pending_at_stop = st.pending_call_ids()
     if a.stop_after_request is not None:
         st.emit("stop_sent", since_book_audio_end_ms=started - book_end,
                 tool_call_already_received=st.tool_call_at_ms is not None)
+    elif a.stop_after_model_speech is not None:
+        st.emit("stop_sent", since_model_speech_ms=started - st.speech_after_call_ms,
+                since_tool_call_ms=started - st.tool_call_at_ms,
+                pending_call_ids=st.pending_at_stop,
+                tool_response_already_sent=bool(st.tool_responses))
     else:
         st.emit("stop_sent", since_tool_call_ms=started - st.tool_call_at_ms)
     ended = await stop.ended
@@ -813,6 +911,12 @@ async def wait_until_done(st: RunState) -> str:
             return "ws_closed"
         if st.no_tool_call:
             return "no_tool_call"
+        if st.stop_skipped is not None:
+            now = st.clock.ms()
+            if st.settled_without_stop(now):
+                return "stop_skipped_settled"
+            if now - st.stop_skipped_ms >= st.args.post_stop_window * 1000:
+                return "stop_skipped_window_elapsed"
         ref = st.post_stop_ref()
         if ref is not None:
             now = st.clock.ms()
@@ -845,14 +949,20 @@ async def run_once(args: argparse.Namespace, run: int, modality: str, out: Jsonl
                    connect: Callable[..., Any]) -> RunState:
     clock = Clock()
     st = RunState(args=args, run=run, clock=clock, out=out, modality=modality)
-    st.emit("run_start", wall=datetime.now().isoformat(timespec="seconds"),
+    st.wall = datetime.now().isoformat(timespec="seconds")
+    st.emit("run_start", wall=st.wall,
             model=args.model, sdk=SDK_VERSION, behavior=args.behavior,
             stop_after_s=args.stop_after, stop_after_request_s=args.stop_after_request,
+            stop_after_model_speech_s=args.stop_after_model_speech,
+            followup_after_tool_call_s=(args.followup_after_tool_call
+                                        if args.followup_audio is not None else None),
+            save_audio=args.save_audio,
             min_post_stop_s=args.min_post_stop, latency_s=args.latency,
             honor_cancel=args.honor_cancel, scheduling=args.scheduling,
             scheduling_in=args.scheduling_in, respond=args.respond,
             modality=modality, send_method_arg=args.send_method, input=args.input,
             **({"clips_s": {k: round(pcm_seconds(v), 3) for k, v in args.clips.items()},
+                "clip_files": {k: Path(v).name for k, v in args.audio_paths.items()},
                 "chunk_ms": int(CHUNK_S * 1000), "mime_type": AUDIO_MIME}
                if args.input == "audio" else {}))
     done_reason = "unknown"
@@ -917,6 +1027,28 @@ def join_turns(chunks: list[tuple[int, int, str]]) -> str:
     return " / ".join(re.sub(r"\s+", " ", v).strip() for v in turns.values() if v.strip())
 
 
+def turns_with_times(chunks: list[tuple[int, int, str]]) -> list[dict]:
+    """One entry per turn: time of its first text chunk and the joined text."""
+    turns: dict[int, dict] = {}
+    for t, turn, txt in chunks:
+        d = turns.setdefault(turn, {"start_ms": t, "turn": turn, "text": ""})
+        d["text"] += txt
+    return [dict(d, text=re.sub(r"\s+", " ", d["text"]).strip())
+            for d in turns.values() if d["text"].strip()]
+
+
+def cancellation_ids_match(st: RunState) -> str:
+    """Do the toolCallCancellation ids name the call(s) pending when the stop started?"""
+    if not st.cancellations:
+        return "n/a (no cancellation)"
+    ids = {i for c in st.cancellations for i in c["ids"]}
+    pending = set(st.pending_at_stop) or ({st.first_call_id} if st.first_call_id else set())
+    hit = sorted(ids & pending)
+    if hit:
+        return "yes (" + ", ".join(hit) + ")"
+    return f"no (cancelled {', '.join(sorted(ids))}; pending {', '.join(sorted(pending)) or '-'})"
+
+
 def summarize(st: RunState) -> dict:
     a = st.args
     stop = st.stop_sent_at_ms
@@ -948,18 +1080,30 @@ def summarize(st: RunState) -> dict:
         parts.append("not started (call id already cancelled)")
     service = "; ".join(parts) if parts else ("no" if st.tool_calls else "n/a")
     audio = a.input == "audio"
+    if a.stop_after_model_speech is not None:
+        stop_after = f"{a.stop_after_model_speech} after model speech"
+    elif a.stop_after_request is not None:
+        stop_after = f"{a.stop_after_request} after " + ("book clip end" if audio else "request")
+    else:
+        stop_after = a.stop_after
+    if st.speech_after_call_ms is not None:
+        speech = f"{st.speech_after_call_ms} (+{st.speech_after_call_ms - st.tool_call_at_ms} vs tool call)"
+    else:
+        speech = "none after tool call" if st.tool_call_at_ms is not None else "n/a"
+    first_resp = min((r["at_ms"] for r in st.tool_responses), default=None)
     row = {
         "run": st.run,
         "input": a.input,
         "behavior": a.behavior,
-        "stop_after_s": (a.stop_after if a.stop_after_request is None
-                         else f"{a.stop_after_request} after "
-                              + ("book clip end" if audio else "request")),
+        "stop_after_s": stop_after,
         "latency_s": a.latency,
         "tool_call_at_ms": ("no_tool_call" if st.tool_call_at_ms is None
                             else rel(st.tool_call_at_ms, st) if a.stop_after_request is not None
                             else st.tool_call_at_ms),
-        "stop_sent_at_ms": stop if stop is not None else "-",
+        "stop_sent_at_ms": (stop if stop is not None
+                            else f"skipped ({st.stop_skipped})" if st.stop_skipped else "-"),
+        "model_speech_start_ms": speech,
+        "cancellation_ids_match": cancellation_ids_match(st),
         "stop_audio_end_ms": ("n/a" if not audio else st.stop_audio_end_ms
                               if st.stop_audio_end_ms is not None else "-"),
         "interrupted_seen": interrupted,
@@ -990,6 +1134,22 @@ def summarize(st: RunState) -> dict:
                  and (end is None or c[0] < end)])[:300],
             "model_after_stop_audio_end": join_turns(
                 [c for c in st.texts if end is not None and c[0] >= end])[:300],
+            "first_model_audio_ms": st.first_audio_ms,
+            "tool_calls": st.tool_calls,
+            "pending_at_stop": st.pending_at_stop,
+            "stop_skipped": st.stop_skipped,
+            "cancellations": st.cancellations,
+            "cancel_attempts": st.cancel_attempts,
+            "job_outcomes": st.job_outcomes,
+            "tool_responses": st.tool_responses,
+            "interrupted_ms": st.interrupted_ms,
+            "generation_complete_ms": st.generation_complete_ms,
+            "turn_complete_ms": st.turn_complete_ms,
+            "model_turns": turns_with_times(st.texts),
+            "input_transcripts": [{"at_ms": t, "text": x} for t, x in st.input_texts],
+            "model_after_tool_response": (join_turns(
+                [c for c in st.texts if c[0] >= first_resp])[:300]
+                if first_resp is not None else None),
         })
     return row
 
@@ -1004,6 +1164,9 @@ def table_columns(args: argparse.Namespace) -> list[str]:
     cols = ["run", "input"] + COLUMNS[1:]
     if args.input == "audio":
         cols.insert(cols.index("stop_sent_at_ms") + 1, "stop_audio_end_ms")
+    if args.stop_after_model_speech is not None:
+        cols.insert(cols.index("tool_call_at_ms") + 1, "model_speech_start_ms")
+        cols.insert(cols.index("cancellation_seen") + 1, "cancellation_ids_match")
     return cols
 
 
@@ -1013,17 +1176,30 @@ def append_summary(path: Path, args: argparse.Namespace, rows: list[dict],
     audio_note = ""
     if args.input == "audio":
         audio_note = (
-            f", input=audio (book clip {pcm_seconds(args.clips['book']):.3f} s, stop clip "
-            f"{pcm_seconds(args.clips['stop']):.3f} s, {AUDIO_MIME}, "
+            f", input=audio (book clip {Path(args.book_audio).name} "
+            f"{pcm_seconds(args.clips['book']):.3f} s, stop clip "
+            f"{pcm_seconds(args.clips['stop']):.3f} s, "
+            + (f"follow-up clip {Path(args.followup_audio).name} "
+               f"{pcm_seconds(args.clips['followup']):.3f} s starting "
+               f"{args.followup_after_tool_call} s after the book_slot call, "
+               if args.followup_audio is not None else "")
+            + f"{AUDIO_MIME}, "
             f"{int(CHUNK_S * 1000)} ms chunks paced in real time, silence between utterances, "
             "automatic VAD at server default). stop_sent_at_ms is the first chunk of the "
             "stop clip, stop_audio_end_ms the last")
+    if args.save_audio:
+        audio_note += (", model output audio saved (--save-audio) to "
+                       "results/audio_out/<scenario>_run<N>_model.wav")
     lines = [
         f"### {args.name}",
         "",
         f"model `{args.model}`, google-genai {SDK_VERSION}, "
         f"{datetime.now().strftime('%Y-%m-%d %H:%M')}, behavior={args.behavior}, "
-        + (f"stop_after={args.stop_after}s, " if args.stop_after_request is None
+        + (f"stop_after_model_speech={args.stop_after_model_speech}s (stop clip starts "
+           "that long after the first model audio chunk that follows the book_slot call, "
+           "only if no tool response has been sent), "
+           if args.stop_after_model_speech is not None
+           else f"stop_after={args.stop_after}s, " if args.stop_after_request is None
            else f"stop_after_request={args.stop_after_request}s (after "
                 + ("end of booking clip), " if args.input == "audio" else "booking request), "))
         + f"latency={args.latency}s, "
@@ -1041,6 +1217,96 @@ def append_summary(path: Path, args: argparse.Namespace, rows: list[dict],
     with path.open("a", encoding="utf-8") as fh:
         fh.write(block)
     return block
+
+
+# --------------------------------------------------------------- save audio --
+
+
+def mime_rate(mime: str) -> int | None:
+    m = re.search(r"rate=(\d+)", mime or "")
+    return int(m.group(1)) if m else None
+
+
+def save_run_audio(st: RunState, out_dir: Path) -> dict:
+    """--save-audio: <scenario>_run<N>_model.wav (model output, chunks concatenated in
+    arrival order), <scenario>_run<N>_user_<label>.wav (copies of the clips sent), and
+    <scenario>_run<N>_audio.json (chunk arrival times, clip send times, key events)."""
+    a = st.args
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{a.name}_run{st.run}"
+    mimes = sorted({c["mime_type"] for c in st.audio_out})
+    rates = {mime_rate(m) for m in mimes}
+    if len(rates) == 1 and None not in rates:
+        rate, rate_source = rates.pop(), "mime type"
+    else:
+        rate, rate_source = MODEL_AUDIO_RATE, f"default (mime types: {mimes or 'none'})"
+    chunks, offset = [], 0
+    for meta, data in zip(st.audio_out, st.audio_data):
+        chunks.append({"t_ms": meta["t_ms"], "turn": meta["turn"], "bytes": len(data),
+                       "wav_offset_ms": round(offset / 2 / rate * 1000, 1),
+                       "duration_ms": round(len(data) / 2 / rate * 1000, 1)})
+        offset += len(data)
+    pcm = b"".join(st.audio_data)
+    if len(pcm) % 2:
+        pcm = pcm[:-1]
+    wav_path = out_dir / f"{stem}_model.wav"
+    if pcm:
+        with wave.open(str(wav_path), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(pcm)
+    user = []
+    for u in st.utterances:
+        src = Path(a.audio_paths[u["label"]])
+        dst = out_dir / f"{stem}_user_{u['label']}.wav"
+        shutil.copyfile(src, dst)
+        user.append({"label": u["label"], "file": dst.name, "source": src.name,
+                     "sent_start_ms": u.get("start_ms"), "sent_end_ms": u.get("end_ms"),
+                     "duration_ms": round(pcm_seconds(load_pcm(src)) * 1000, 1),
+                     "sample_rate": AUDIO_RATE})
+    sidecar = {
+        "scenario": a.name, "run": st.run, "wall": st.wall, "model": a.model,
+        "time_base": "ms since session start (time.monotonic() when the run started). "
+                     "t_ms of a model chunk is when the harness received it; "
+                     "sent_start_ms / sent_end_ms of a user clip are when its first / last "
+                     "100 ms chunk was sent.",
+        "model_audio": {
+            "file": wav_path.name if pcm else None,
+            "mime_types": mimes, "sample_rate": rate, "sample_rate_from": rate_source,
+            "channels": 1, "sample_width_bits": 16,
+            "duration_s": round(len(pcm) / 2 / rate, 3), "chunks": len(chunks),
+            "first_chunk_ms": chunks[0]["t_ms"] if chunks else None,
+            "last_chunk_ms": chunks[-1]["t_ms"] if chunks else None,
+            "note": "Chunks are concatenated in arrival order with no gaps. The server "
+                    "sends audio faster than real time, so wav_offset_ms is not the "
+                    "arrival time: place each chunk at its t_ms or later. A client that "
+                    "plays audio drops what is still queued when `interrupted` arrives; "
+                    "this file keeps everything received.",
+        },
+        "chunks": chunks,
+        "user_clips": user,
+        "events": {
+            "tool_calls": st.tool_calls,
+            "tool_responses": st.tool_responses,
+            "service": st.job_outcomes,
+            "cancellations": st.cancellations,
+            "interrupted_ms": st.interrupted_ms,
+            "generation_complete_ms": st.generation_complete_ms,
+            "turn_complete_ms": st.turn_complete_ms,
+            "voice_activity": st.vad_events,
+            "stop_sent_at_ms": st.stop_sent_at_ms,
+            "stop_audio_end_ms": st.stop_audio_end_ms,
+            "model_transcript": [{"t_ms": t, "turn": turn, "text": x} for t, turn, x in st.texts],
+            "input_transcript": [{"t_ms": t, "text": x} for t, x in st.input_texts],
+        },
+    }
+    side_path = out_dir / f"{stem}_audio.json"
+    side_path.write_text(redact(json.dumps(sidecar, indent=1, ensure_ascii=False, default=str)),
+                         encoding="utf-8")
+    return {"model_wav": wav_path.name if pcm else None, "sidecar": side_path.name,
+            "model_audio_s": sidecar["model_audio"]["duration_s"], "sample_rate": rate,
+            "user_clips": [u["file"] for u in user]}
 
 
 # -------------------------------------------------------------------- main --
@@ -1067,6 +1333,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--stop-after", type=float, default=1.0,
                    help="seconds after the tool call arrives to send the stop message "
                         "(audio: to the first chunk of the stop clip)")
+    p.add_argument("--stop-after-model-speech", type=float, default=None,
+                   help="scenario G (--input audio): start the stop clip this many seconds "
+                        "after the first model audio chunk that arrives after the book_slot "
+                        "call, and only if no tool response has been sent yet (overrides "
+                        "--stop-after)")
+    p.add_argument("--followup-audio", default=None,
+                   help="scenario G2 (--input audio): 16 kHz 16-bit mono WAV streamed as a "
+                        "second user utterance --followup-after-tool-call s after the "
+                        "book_slot call arrives")
+    p.add_argument("--followup-after-tool-call", type=float, default=0.5)
+    p.add_argument("--save-audio", action="store_true",
+                   help="write the model's output audio per run to results/audio_out/"
+                        "<name>_run<N>_model.wav plus a JSON sidecar with chunk arrival "
+                        "times, and copies of the user clips with their send times")
     p.add_argument("--stop-after-request", type=float, default=None,
                    help="send the stop this many seconds after the booking request instead "
                         "(timer starts at the request, not at the tool call; audio: at the "
@@ -1100,14 +1380,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--results-dir", default=str(HERE / "results"))
     p.add_argument("-v", "--verbose", action="store_true", help="echo events to stdout")
     args = p.parse_args(argv)
+    if args.followup_audio is not None and args.input != "audio":
+        p.error("--followup-audio needs --input audio")
+    if args.stop_after_model_speech is not None:
+        if args.input != "audio":
+            p.error("--stop-after-model-speech needs --input audio")
+        if args.stop_after_request is not None:
+            p.error("--stop-after-model-speech and --stop-after-request are exclusive")
     if args.name is None:
-        stop = (f"stop{args.stop_after}" if args.stop_after_request is None
+        stop = (f"speechstop{args.stop_after_model_speech}"
+                if args.stop_after_model_speech is not None
+                else f"stop{args.stop_after}" if args.stop_after_request is None
                 else f"stopreq{args.stop_after_request}")
         args.name = (f"{args.behavior.lower()}_{stop}_lat{args.latency}"
                      f"{'_honor' if args.honor_cancel else ''}"
                      f"{'' if args.scheduling == 'none' else '_' + args.scheduling.lower()}"
                      f"{'_audio' if args.input == 'audio' else ''}")
     args.clips = {}
+    args.audio_paths = {"book_request": args.book_audio, "stop": args.stop_audio}
+    if args.followup_audio is not None:
+        args.audio_paths["followup"] = args.followup_audio
     return args
 
 
@@ -1116,6 +1408,8 @@ async def amain(args: argparse.Namespace, connect: Callable[..., Any] | None = N
         try:
             args.clips = {"book": load_pcm(Path(args.book_audio)),
                           "stop": load_pcm(Path(args.stop_audio))}
+            if args.followup_audio is not None:
+                args.clips["followup"] = load_pcm(Path(args.followup_audio))
         except Exception as exc:
             print(f"cannot load audio clips: {exc}", file=sys.stderr)
             return 2
@@ -1145,6 +1439,12 @@ async def amain(args: argparse.Namespace, connect: Callable[..., Any] | None = N
                     await asyncio.sleep(args.between_runs)
                     st = await run_once(args, run, modality, out, connect)
                 row = summarize(st)
+                if args.save_audio:
+                    try:
+                        row["saved_audio"] = save_run_audio(st, results / "audio_out")
+                    except Exception as exc:
+                        row["saved_audio"] = {"error": err_text(exc)}
+                        out.write(run, -1, "save_audio_failed", detail=err_text(exc))
                 quota = quota_error(st)
             except Exception as exc:  # never let one run kill the matrix
                 quota = err_text(exc) if QUOTA_RE.search(err_text(exc)) else None
