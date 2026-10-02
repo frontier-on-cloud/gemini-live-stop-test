@@ -1,0 +1,13 @@
+run 1/1  model=gemini-3.8-live  google-genai 2.25.0  behavior=NON_BLOCKING  2026-10-02 22:26:49
+   394 ms  sent request: 'Book me the 3pm slot tomorrow, please.'
+   908 ms  toolCall book_slot id=call_543679 args={'slot': 'tomorrow at 3pm'}
+   909 ms  turnComplete
+  1912 ms  sent stop: "Actually, stop. Don't book it."
+  4911 ms (stop+2999)  sent tool response for call_543679
+  5946 ms (stop+4034)  model said (from 2688 ms): "The booking was already made, so I will need to cancel it for you."
+  5946 ms (stop+4034)  turnComplete
+  9909 ms (stop+7997)  model said (from 6557 ms): "The booking was already made, so I need to cancel it for you."
+  9909 ms (stop+7997)  turnComplete
+summary: 1 toolCall(s) for one booking request, behavior=NON_BLOCKING
+toolCall ids: call_543679
+toolCallCancellation: none received

@@ -10,6 +10,40 @@ It started as a follow-up to a Reddit question: the assistant starts booking a
 slot through a tool, the user says "actually, stop". Can the app still prevent
 the booking?
 
+## Minimal reproduction
+
+`repro_blocking_reissue.py` (119 lines, google-genai and python-dotenv only)
+reproduces scenario C on its own: `book_slot` declared with
+`behavior: BLOCKING`, the request and the stop typed with
+`send_realtime_input(text=...)`, the stop sent 1 s after the first `toolCall`,
+and `{"status": "booked"}` sent 4 s after each call, like a slow backend. It
+prints one line per relevant server event in ms since session start, then a
+three-line summary, and exits 15 s after the stop.
+
+```sh
+GEMINI_API_KEY=... uv run repro_blocking_reissue.py      # BLOCKING, one session
+uv run repro_blocking_reissue.py --runs 3 --behavior NON_BLOCKING   # key from .env
+```
+
+Runs on 2026-10-02, raw stdout in `results/repro/`:
+
+| output | toolCalls | `interrupted` after the stop | second `toolCall` after the stop | `toolCallCancellation` |
+|---|---|---|---|---|
+| [blocking_run1.txt](results/repro/blocking_run1.txt) | 2 | 14 ms | 713 ms, new id, slot `tomorrow at 3pm` (first: `tomorrow 3pm`) | none |
+| [blocking_run2.txt](results/repro/blocking_run2.txt) | 2 | 21 ms | 469 ms, new id, same args | none |
+| [blocking_run3.txt](results/repro/blocking_run3.txt) | 1 | 14 ms | none | none |
+| [non_blocking_run1.txt](results/repro/non_blocking_run1.txt) | 1 | none | none | none |
+
+The re-issue reproduced in 2 of 3 BLOCKING runs (3 of 3 in scenario C on
+2026-09-29). In runs 1 and 2 both tool responses were sent, and the model
+spoke only after the second one, about 0.5 s later ("The booking for tomorrow
+at 3pm was already made before I could stop it."). In run 3 the model began
+saying "I haven't booked anything, so no worries." 1013 ms after the stop,
+2.0 s before the tool response for the pending call reported `booked`; no
+later turn followed. In the NON_BLOCKING run the model said "The booking was
+already made, so I will need to cancel it for you." from 776 ms after the
+stop, before any tool response, and again after it.
+
 ## What one run does
 
 One run is one Live session:
@@ -481,6 +515,8 @@ re-run with `--save-audio` (N=3). With them, the results hold 41 sessions
 ## Files
 
 - `stop_test.py`: the harness (argparse CLI, async, one session per run).
+- `repro_blocking_reissue.py`: the minimal reproduction of scenario C; its
+  outputs are in `results/repro/`.
 - `run_all.sh`: runs scenarios A-F with N=3 and prints the summary.
 - `run_audio.sh`: runs audio_A, audio_C, audio_D, audio_F with
   `--input audio`, N=3, and appends to the summary.
